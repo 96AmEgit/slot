@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マニュアルストップスロット</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            padding: 20px 0;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 380px;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        /* --- ゲーム画面 --- */
+        #game-screen {
+            display: block;
+        }
+
+        #reels-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px; /* リールとボタンの間の隙間 */
+            margin: 20px 0;
+        }
+
+        .reel-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .reel {
+            width: 80px;
+            height: 80px;
+            border: 5px solid #ddd;
+            background: #fafafa;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+        }
+
+        .reel img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .stop-button {
+            width: 80px;
+            padding: 10px 0;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #dc3545;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .stop-button:hover {
+            background-color: #c82333;
+        }
+        .stop-button:disabled {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+        }
+        
+        #player-info {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        #player-info span {
+            font-weight: bold;
+            color: #e84118;
+        }
+        
+        #bet-amount {
+            width: 60px;
+            padding: 5px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        #spin-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        #spin-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #d35400;
+            height: 25px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="game-screen">
+        <h1>マニュアルストップスロット</h1>
+        <div id="player-info">
+            所持コイン: <span id="coin-count">100</span>
+        </div>
+
+        <div id="reels-container">
+            <div class="reel-wrapper">
+                <div class="reel" id="reel1">🍒</div>
+                <button class="stop-button" id="stop1" disabled>ストップ</button>
+            </div>
+            <div class="reel-wrapper">
+                <div class="reel" id="reel2">🍒</div>
+                <button class="stop-button" id="stop2" disabled>ストップ</button>
+            </div>
+            <div class="reel-wrapper">
+                <div class="reel" id="reel3">🍒</div>
+                <button class="stop-button" id="stop3" disabled>ストップ</button>
+            </div>
+        </div>
+
+        <div id="message">ベットしてスピン！</div>
+        <div id="controls">
+            <div>
+                <label for="bet-amount">ベット額:</label>
+                <input type="number" id="bet-amount" value="10" min="1">
+            </div>
+            <button id="spin-button">スピン</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- HTML要素の取得 ---
+    const reels = [document.getElementById('reel1'), document.getElementById('reel2'), document.getElementById('reel3')];
+    const stopButtons = [document.getElementById('stop1'), document.getElementById('stop2'), document.getElementById('stop3')];
+    const coinCountSpan = document.getElementById('coin-count');
+    const betAmountInput = document.getElementById('bet-amount');
+    const spinButton = document.getElementById('spin-button');
+    const messageDiv = document.getElementById('message');
+
+    // --- ゲームの基本設定 ---
+    const symbols = [
+        { name: 's7', content: '７', payout: 100 },
+        { name: 'bell', content: '🔔', payout: 50 },
+        { name: 'melon', content: '🍉', payout: 20 },
+        { name: 'cherry', content: '🍒', payout: 10, }
+    ];
+
+    // --- ゲームの状態管理 ---
+    let coins = 100;
+    let reelSpins = [null, null, null]; // 各リールのsetIntervalを管理
+    let stoppedReels = 0; // 停止したリールの数
+
+    // --- 初期化処理 ---
+    function initialize() {
+        spinButton.addEventListener('click', spin);
+        stopButtons.forEach((button, index) => {
+            button.addEventListener('click', () => stopReel(index));
+        });
+        // 初期リール表示
+        reels.forEach(reel => drawReelContent(reel, symbols.find(s => s.name === 'cherry')));
+    }
+    
+    // --- 関数定義 ---
+
+    // リールの表示内容を描画するヘルパー関数
+    function drawReelContent(reelElement, symbol) {
+        reelElement.dataset.symbolName = symbol.name;
+        reelElement.textContent = symbol.content;
+    }
+
+    // スピンボタンが押されたときの処理
+    function spin() {
+        if (reelSpins.some(s => s !== null)) return; // 回転中は無視
+
+        const betAmount = parseInt(betAmountInput.value);
+        if (isNaN(betAmount) || betAmount <= 0) {
+            showMessage("有効なベット額を入力してください。"); return;
+        }
+        if (coins < betAmount) {
+            showMessage("コインが足りません！"); return;
+        }
+        
+        // UIの状態を更新
+        spinButton.disabled = true;
+        betAmountInput.disabled = true;
+        stopButtons.forEach(button => button.disabled = false);
+        showMessage("リールを止めてください！");
+        stoppedReels = 0;
+
+        // コインを消費
+        coins -= betAmount;
+        updateCoins();
+
+        // 全てのリールを回転開始
+        reels.forEach((reel, index) => {
+            reelSpins[index] = setInterval(() => {
+                const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+                drawReelContent(reel, randomSymbol);
+            }, 80); // 回転速度
+        });
+    }
+
+    // リールを停止させる処理
+    function stopReel(index) {
+        if (reelSpins[index] === null) return; // すでに止まっているリールは無視
+
+        clearInterval(reelSpins[index]);
+        reelSpins[index] = null;
+        stopButtons[index].disabled = true;
+        stoppedReels++;
+
+        // 全てのリールが停止したら結果を判定
+        if (stoppedReels === 3) {
+            checkWin();
+        }
+    }
+
+    // 当たり判定と配当の処理
+    function checkWin() {
+        const resultSymbols = reels.map(reel => reel.dataset.symbolName);
+        const [r1, r2, r3] = resultSymbols;
+        const betAmount = parseInt(betAmountInput.value);
+
+        let winAmount = 0;
+        let winMessage = "残念！";
+
+        // 3つ揃いの判定
+        if (r1 === r2 && r2 === r3) {
+            const symbol = symbols.find(s => s.name === r1);
+            winAmount = betAmount * symbol.payout;
+            winMessage = `🎉 ${symbol.content}が揃った！ ${winAmount}コイン獲得！ 🎉`;
+        } else {
+            // チェリー役の判定
+            const cherrySymbol = symbols.find(s => s.name === 'cherry');
+            const cherryCount = resultSymbols.filter(s => s === 'cherry').length;
+            if (cherryCount === 2) {
+                winAmount = betAmount * cherrySymbol.doublePayout;
+                winMessage = `🍒 チェリーが2つ！ ${winAmount}コイン獲得！`;
+            } else if (cherryCount === 1) {
+                winAmount = betAmount * cherrySymbol.singlePayout;
+                winMessage = `🍒 チェリーが1つ！ ${winAmount}コイン獲得！`;
+            }
+        }
+        
+        if (winAmount > 0) {
+            coins += winAmount;
+            updateCoins();
+        }
+        
+        showMessage(winMessage);
+        
+        // ゲーム終了後のUIリセット
+        if (coins > 0) {
+            spinButton.disabled = false;
+            betAmountInput.disabled = false;
+        } else {
+            showMessage("ゲームオーバー！リロードして再挑戦！");
+            spinButton.disabled = true;
+        }
+    }
+
+    function updateCoins() { coinCountSpan.textContent = coins; }
+    function showMessage(text) { messageDiv.textContent = text; }
+    
+    // --- 実行 ---
+    initialize();
+
+</script>
+
+</body>
+</html>
