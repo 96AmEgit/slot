@@ -23,7 +23,7 @@
 
 ## 📷 スクリーンショット
 
-![カスタムスロット画面](images/SLomoshirogazou.png)
+![カスタムスロット画面](images/SLomoshiro.png)
 
 ## &copy; 2024 くろあめ
 
